@@ -1,0 +1,22 @@
+{
+  "name": "mock-autopilot-provider",
+  "version": "0.1.0",
+  "description": "Mock Autopilot provider plugin for Signal K.",
+  "main": "index.js",
+  "scripts": {
+  },
+  "keywords": [
+    "signalk-node-server-plugin"
+  ],
+  "author": "panaaj@hotmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "lodash": "^4.17.15"
+  },
+  "devDependencies": {
+  },
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/SignalK/mock-autopilot-provider"
+  }
+}
