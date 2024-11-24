@@ -81,10 +81,10 @@ module.exports = function(app) {
             throw new Error('Not implemented!')
           },
           dodge: async (
-            direction,
+            value,
             deviceId
           ) => {
-            throw new Error('Not implemented!')
+            return autopilot.dodge(value)
           }
         },
         [autopilot.type]
