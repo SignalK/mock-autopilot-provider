@@ -63,6 +63,8 @@ module.exports = function(app) {
       app.debug(`**** ERROR connecting to autopilot device (${pilot.type}) *****`)
       app.debug(err)
       setState('off-line')
+    } finally {
+      sendUpdateToSignalK()
     }
   }
 
@@ -89,20 +91,22 @@ module.exports = function(app) {
       throw new Error(`Invalid state: ${value}`)
     } else {
       setState(value)
-      // return boolean indicating whether the entered state is actively steering the vessel.
-      return apStatus.engaged
+      sendUpdateToSignalK()
+      return
     }
   }
 
   pilot.engage = () => {
     // Determine the state to set when engage is requested
     setState(defaultState.engaged)
+    sendUpdateToSignalK()
     return
   }
 
   pilot.disengage = () => {
     // Determine the state to set when dis-engage is requested
     setState(defaultState.disengaged)
+    sendUpdateToSignalK()
     return
   }
 
@@ -112,6 +116,7 @@ module.exports = function(app) {
       throw new Error(`Invalid mode: ${value}`)
     } else {
       apStatus.mode = value
+      sendUpdateToSignalK()
       return
     }
   }
@@ -125,6 +130,7 @@ module.exports = function(app) {
       throw new Error(`Invalid value ${value} for current mode ${apStatus.mode}`)
     }
     apStatus.target = value
+    sendUpdateToSignalK()
     return
   }
 
@@ -144,6 +150,7 @@ module.exports = function(app) {
       }
     }
     apStatus.target = v
+    sendUpdateToSignalK()
     return
   }
 
@@ -160,6 +167,7 @@ module.exports = function(app) {
       app.debug('** Exit Dodge Mode **')
       apStatus.mode = preDodgeMode
     }
+    sendUpdateToSignalK()
     return
   }
 
@@ -175,16 +183,36 @@ module.exports = function(app) {
   /***************************************
    * Send update from Autopilot to SKserver
   ****************************************/
-  const sendUpdateToSignalK = (attrib, value) => {
+  const sendUpdateToSignalK = () => {
     // pilot.state should be set to 'off-line' if device is unavailable
-    app.autopilotUpdate(pilot.type, attrib, value)
-  }
+    app.autopilotUpdate(pilot.type, apStatus)
 
-  /***************************************
-   * Send alarm from Autopilot to SKserver
-  ****************************************/
-  const sendAlarmToSignalK = (alarmName, value) => {
-    app.autopilotAlarm(pilot.type, normaliseAlarm(alarmName), value)
+    setTimeout(
+      () => {
+        const alarm = {
+          alarm: {
+            path: 'waypointArrival',
+            value: {
+              state: 'alert',
+              method: ['visual'],
+              message: 'Soon to be here....'
+            }
+          }
+        }
+        app.autopilotUpdate(pilot.type, alarm)
+      }, 5000
+    )
+
+    setTimeout (
+      () => app.autopilotUpdate(pilot.type, {
+        alarm: {
+          path: 'waypointArrival',
+          value: null
+        }
+      }),
+      10000
+    )
+    
   }
 
 
