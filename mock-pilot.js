@@ -65,6 +65,7 @@ module.exports = function(app) {
       setState('off-line')
     } finally {
       sendUpdateToSignalK()
+      raiseAlarm()
     }
   }
 
@@ -74,7 +75,7 @@ module.exports = function(app) {
   }
 
   pilot.status = () => { 
-    return  {...AP_OPTIONS, ...apStatus}
+    return  {options: {...AP_OPTIONS}, ...apStatus}
   }
 
   setState = (value) => {
@@ -126,8 +127,10 @@ module.exports = function(app) {
   ***********************************************/
   pilot.setTarget = (value) => {
     // validate value against current mode, throw if invalid.
-    if (value < 0 && pilot.mode !== 'wind') {
-      throw new Error(`Invalid value ${value} for current mode ${apStatus.mode}`)
+    if (value < 0 && apStatus.mode !== 'wind') {
+      const errMsg = `I** ERROR: nvalid value ${value} for current mode ${apStatus.mode}`
+        console.log(errMsg)
+      throw new Error(errMsg)
     }
     apStatus.target = value
     sendUpdateToSignalK()
@@ -140,13 +143,16 @@ module.exports = function(app) {
   pilot.adjustTarget = (value)  => {
     // validate resultant target value against current mode, throw if invalid.
     const v = apStatus.target + value
+    const errMsg = `** ERROR: Value ${v} out of bounds for current mode ${apStatus.mode}`
     if (apStatus.mode === 'wind') {
-      if (v > 180 || v < -180) {
-        throw new Error(`Invalid value ${value} for current mode ${apStatus.mode}`)
+      if (v > Math.PI || v < (0 - Math.PI)) {
+        console.log(errMsg)
+        throw new Error(errMsg)
       }
     } else {
-      if (v > 360 || v < 0) {
-        throw new Error(`Invalid value ${value} for current mode ${apStatus.mode}`)
+      if (v > (2 * Math.PI) || v < 0) {
+        console.log(errMsg)
+        throw new Error(errMsg)
       }
     }
     apStatus.target = v
@@ -160,12 +166,15 @@ module.exports = function(app) {
   pilot.dodge = (value)  => {
     // determine operation.
     if (typeof value === 'number') {
-      app.debug(`** Enter Dodge Mode (${value}) **`)
-      preDodgeMode = apStatus.mode
-      apStatus.mode = 'dodge'
+       if (apStatus.mode !== 'dodge') {
+            preDodgeMode = apStatus.mode
+            app.debug(`** Enter Dodge Mode (${value}) <-`, preDodgeMode)
+            apStatus.mode = 'dodge'
+      }
     } else {
-      app.debug('** Exit Dodge Mode **')
-      apStatus.mode = preDodgeMode
+      app.debug('** Exit Dodge Mode ->', preDodgeMode)
+      apStatus.mode = preDodgeMode || apStatus.mode
+      preDodgeMode = null
     }
     sendUpdateToSignalK()
     return
@@ -185,8 +194,16 @@ module.exports = function(app) {
   ****************************************/
   const sendUpdateToSignalK = () => {
     // pilot.state should be set to 'off-line' if device is unavailable
-    app.autopilotUpdate(pilot.type, apStatus)
+    app.autopilotUpdate(pilot.type, {
+        target: typeof apStatus.target === 'number' ? apStatus.target : null,
+        mode: apStatus.mode,
+        state: apStatus.state,
+        engaged: apStatus.engaged
+    })
+  }
 
+  // Raise alarm message
+  const raiseAlarm = () => {
     setTimeout(
       () => {
         const alarm = {
@@ -200,19 +217,8 @@ module.exports = function(app) {
           }
         }
         app.autopilotUpdate(pilot.type, alarm)
-      }, 5000
+      }, Math.random() * 20000
     )
-
-    setTimeout (
-      () => app.autopilotUpdate(pilot.type, {
-        alarm: {
-          path: 'waypointArrival',
-          value: null
-        }
-      }),
-      10000
-    )
-    
   }
 
 
